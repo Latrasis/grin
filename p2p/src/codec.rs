@@ -15,6 +15,7 @@
 //! P2P Message Encoding and Decoding
 
 use tokio_io::codec::{Encoder, Decoder};
+use tokio_proto::pipeline;
 
 use core::core::{self, Block, BlockHeader, Transaction};
 use core::core::hash::Hash;
@@ -39,6 +40,24 @@ enum Message {
 
 /// P2P Message Encoder and Decoder
 struct MessageCodec;
+
+impl Encoder for MessageCodec {
+    type Item = Message;
+    type Error = ser::Error;
+
+    fn encode(&mut self, msg: Self::Item, buf: &mut BytesMut) -> Self::Error {
+        Ok(())
+    }
+
+}
+
+impl Decoder for MessageCodec {
+	type Item = Message;
+	type Error = io::Error;
+    fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
+        Ok(())
+    }
+}
 
 
 

@@ -33,6 +33,7 @@ extern crate log;
 extern crate futures;
 #[macro_use]
 extern crate tokio_core;
+extern crate tokio_proto;
 extern crate tokio_io;
 <<<<<<< HEAD
 extern crate bytes;
