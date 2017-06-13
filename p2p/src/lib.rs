@@ -34,7 +34,10 @@ extern crate futures;
 #[macro_use]
 extern crate tokio_core;
 extern crate tokio_io;
+<<<<<<< HEAD
 extern crate bytes;
+=======
+>>>>>>> Setup MessageCodec
 extern crate tokio_timer;
 extern crate rand;
 extern crate serde;
@@ -43,6 +46,7 @@ extern crate serde_derive;
 extern crate time;
 extern crate num;
 
+mod codec;
 mod conn;
 pub mod handshake;
 mod rate_limit;
