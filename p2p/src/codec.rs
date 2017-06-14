@@ -18,11 +18,12 @@ use tokio_io::codec::{Encoder, Decoder};
 use tokio_proto::multiplex::*;
 use bytes::{BytesMut, BigEndian, BufMut, Buf, IntoBuf}; 
 
-use core::core::{self, Block, BlockHeader, Transaction};
+use core::core::{Block, Transaction};
 use core::core::hash::Hash;
 use core::ser;
 use msg::*;
-use types::*;
+
+const MSG_HEADER_SIZE: usize = 11;
 
 #[derive(Clone, PartialEq)]
 enum MsgBody {
@@ -99,7 +100,8 @@ impl Encoder for MsgCodec {
         let header = ser::ser_vec(&header)?;
 
         // Put Header, Id and Body
-        dst.reserve(header.len() + 8 + body.len());
+        dst.reserve(MSG_HEADER_SIZE + 8 + body.len());
+
         dst.put_slice(&header);
         dst.put_u64::<BigEndian>(id);
         dst.put_slice(&body);
@@ -113,6 +115,80 @@ impl Decoder for MsgCodec {
 	type Item = (RequestId, MsgBody);
 	type Error = ser::Error;
     fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
-        unimplemented!()
-    }
+        // Create Temporary Buffer
+		let ref mut temp_src = src.clone();
+		
+		// Check Minimum Size
+		if temp_src.len() < MSG_HEADER_SIZE + 8 {
+			return Ok(None);
+		}
+
+        // Get MsgHeader
+		let buf = temp_src.split_to(MSG_HEADER_SIZE).into_buf();
+        let header = ser::deserialize::<MsgHeader>(&mut buf.reader())?;
+        
+        // Get Id
+        let mut buf = temp_src.split_to(8).into_buf();
+        let id = buf.get_u64::<BigEndian>();
+
+		// Ensure sufficient data
+		if temp_src.len() < header.msg_len as usize {
+			return Ok(None);
+		}
+
+        // Extract Reader
+        let ref mut read = temp_src.split_to(header.msg_len as usize).into_buf().reader();
+
+		// Attempt message body decode
+		let decoded_msg = match header.msg_type {
+			Type::Ping => MsgBody::Ping,
+			Type::Pong => MsgBody::Pong,
+			Type::Hand => {
+				let hand = ser::deserialize::<Hand>(read)?;
+				MsgBody::Hand(hand)
+			}
+			Type::Shake => {
+				let shake = ser::deserialize::<Shake>(read)?;
+				MsgBody::Shake(shake)
+			}
+			Type::GetPeerAddrs => {
+				let get_peer_addrs = ser::deserialize::<GetPeerAddrs>(read)?;
+				MsgBody::GetPeerAddrs(get_peer_addrs)
+			}
+			Type::PeerAddrs => {
+				let peer_addrs = ser::deserialize::<PeerAddrs>(read)?;
+				MsgBody::PeerAddrs(peer_addrs)
+			}
+			Type::Headers => {
+				let headers = ser::deserialize::<Headers>(read)?;
+				MsgBody::Headers(headers)
+			}
+			Type::GetHeaders => {
+				let locator = ser::deserialize::<Locator>(read)?;
+				MsgBody::GetHeaders(locator)
+			}
+			Type::Block => {
+				let block = ser::deserialize::<Block>(read)?;
+				MsgBody::Block(block)
+			}
+			Type::GetBlock => {
+				let hash = ser::deserialize::<Hash>(read)?;
+				MsgBody::GetBlock(hash)
+			}
+			Type::Transaction => {
+				let transaction = ser::deserialize::<Transaction>(read)?;
+				MsgBody::Transaction(transaction)
+			}
+			Type::Error => {
+				let err = ser::deserialize::<PeerError>(read)?;
+				MsgBody::PeerError(err)
+			}
+		};
+
+		// If succesfull truncate src by bytes read from temp_src;
+		let diff = src.len() - temp_src.len();
+		src.split_to(diff);
+
+		Ok(Some((id, decoded_msg)))
+	}
 }
