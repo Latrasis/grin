@@ -16,7 +16,7 @@
 
 use tokio_io::codec::{Encoder, Decoder};
 use tokio_proto::multiplex::*;
-use bytes::{BytesMut, BufMut, Buf};
+use bytes::{BytesMut, BigEndian, BufMut, Buf, IntoBuf}; 
 
 use core::core::{self, Block, BlockHeader, Transaction};
 use core::core::hash::Hash;
@@ -98,9 +98,10 @@ impl Encoder for MsgCodec {
 		// Serialize MsgHeader
         let header = ser::ser_vec(&header)?;
 
-        // Put Header and Body
-        dst.reserve(header.len() + body.len());
+        // Put Header, Id and Body
+        dst.reserve(header.len() + 8 + body.len());
         dst.put_slice(&header);
+        dst.put_u64::<BigEndian>(id);
         dst.put_slice(&body);
 
 		Ok(())
