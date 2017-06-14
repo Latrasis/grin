@@ -14,6 +14,8 @@
 
 //! P2P Message Encoding and Decoding
 
+use std::io;
+
 use tokio_io::codec::{Encoder, Decoder};
 use tokio_proto::multiplex::*;
 use bytes::{BytesMut, BigEndian, BufMut, Buf, IntoBuf}; 
@@ -26,7 +28,7 @@ use msg::*;
 const MSG_HEADER_SIZE: usize = 11;
 
 #[derive(Clone, PartialEq)]
-enum MsgBody {
+pub enum MsgBody {
 	PeerError(PeerError),
 	Hand(Hand),
 	Shake(Shake),
@@ -43,11 +45,11 @@ enum MsgBody {
 
 /// P2P Message Encoder and Decoder
 #[derive(Default, Clone)]
-struct MsgCodec;
+pub struct MsgCodec;
 
 impl Encoder for MsgCodec {
     type Item = (RequestId, MsgBody);
-    type Error = ser::Error;
+    type Error = io::Error;
 
     fn encode(&mut self, (id, msg): Self::Item, dst: &mut BytesMut) -> Result<(), Self::Error> {
         
@@ -113,7 +115,7 @@ impl Encoder for MsgCodec {
 
 impl Decoder for MsgCodec {
 	type Item = (RequestId, MsgBody);
-	type Error = ser::Error;
+	type Error = io::Error;
     fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
         // Create Temporary Buffer
 		let ref mut temp_src = src.clone();

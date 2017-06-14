@@ -51,6 +51,15 @@ impl From<io::Error> for Error {
 	}
 }
 
+impl From<Error> for io::Error {
+	fn from(e: Error) -> io::Error {
+		match e {
+			Error::IOErr(e) => e,
+			_ => io::Error::new(io::ErrorKind::InvalidData, e)
+		}
+	}
+}
+
 impl fmt::Display for Error {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		match *self {

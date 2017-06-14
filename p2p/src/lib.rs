@@ -49,6 +49,7 @@ extern crate time;
 extern crate num;
 
 mod codec;
+mod proto;
 mod conn;
 pub mod handshake;
 mod rate_limit;
