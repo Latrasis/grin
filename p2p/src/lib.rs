@@ -40,6 +40,7 @@ extern crate bytes;
 =======
 >>>>>>> Setup MessageCodec
 extern crate tokio_timer;
+extern crate bytes;
 extern crate rand;
 extern crate serde;
 #[macro_use]
