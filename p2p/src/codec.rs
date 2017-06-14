@@ -15,7 +15,8 @@
 //! P2P Message Encoding and Decoding
 
 use tokio_io::codec::{Encoder, Decoder};
-use tokio_proto::pipeline;
+use tokio_proto::multiplex::*;
+use bytes::{BytesMut, BufMut, Buf};
 
 use core::core::{self, Block, BlockHeader, Transaction};
 use core::core::hash::Hash;
@@ -23,7 +24,8 @@ use core::ser;
 use msg::*;
 use types::*;
 
-enum Message {
+#[derive(Clone, PartialEq)]
+enum MsgBody {
 	PeerError(PeerError),
 	Hand(Hand),
 	Shake(Shake),
@@ -39,28 +41,77 @@ enum Message {
 }
 
 /// P2P Message Encoder and Decoder
-struct MessageCodec;
+#[derive(Default, Clone)]
+struct MsgCodec;
 
-impl Encoder for MessageCodec {
-    type Item = Message;
+impl Encoder for MsgCodec {
+    type Item = (RequestId, MsgBody);
     type Error = ser::Error;
 
-    fn encode(&mut self, msg: Self::Item, buf: &mut BytesMut) -> Self::Error {
-        Ok(())
+    fn encode(&mut self, (id, msg): Self::Item, dst: &mut BytesMut) -> Result<(), Self::Error> {
+        
+		let (header, body) = match msg {
+			MsgBody::Pong => (MsgHeader::new(Type::Pong, 0), vec![]),
+			MsgBody::Ping => (MsgHeader::new(Type::Ping, 0), vec![]),
+			MsgBody::Hand(hand) => {
+				let body = ser::ser_vec(&hand)?;
+				(MsgHeader::new(Type::Hand, body.len() as u64), body)
+			}
+			MsgBody::Shake(shake) => {
+				let body = ser::ser_vec(&shake)?;
+				(MsgHeader::new(Type::Shake, body.len() as u64), body)
+			}
+			MsgBody::GetPeerAddrs(get_peer_addrs) => {
+				let body = ser::ser_vec(&get_peer_addrs)?;
+				(MsgHeader::new(Type::GetPeerAddrs, body.len() as u64), body)
+			}
+			MsgBody::PeerAddrs(peer_addrs) => {
+				let body = ser::ser_vec(&peer_addrs)?;
+				(MsgHeader::new(Type::PeerAddrs, body.len() as u64), body)
+			}
+			MsgBody::Headers(headers) => {
+				let body = ser::ser_vec(&headers)?;
+				(MsgHeader::new(Type::Headers, body.len() as u64), body)
+			}
+			MsgBody::GetHeaders(locator) => {
+				let body = ser::ser_vec(&locator)?;
+				(MsgHeader::new(Type::GetHeaders, body.len() as u64), body)
+			}
+			MsgBody::Block(block) => {
+				let body = ser::ser_vec(&block)?;
+				(MsgHeader::new(Type::Block, body.len() as u64), body)
+			}
+			MsgBody::GetBlock(hash) => {
+				let body = ser::ser_vec(&hash)?;
+				(MsgHeader::new(Type::GetBlock, body.len() as u64), body)
+			}
+			MsgBody::Transaction(tx) => {
+				let body = ser::ser_vec(&tx)?;
+				(MsgHeader::new(Type::Transaction, body.len() as u64), body)
+			}
+			MsgBody::PeerError(err) => {
+				let body = ser::ser_vec(&err)?;
+				(MsgHeader::new(Type::Error, body.len() as u64), body)
+			}
+		};
+
+		// Serialize MsgHeader
+        let header = ser::ser_vec(&header)?;
+
+        // Put Header and Body
+        dst.reserve(header.len() + body.len());
+        dst.put_slice(&header);
+        dst.put_slice(&body);
+
+		Ok(())
     }
 
 }
 
-impl Decoder for MessageCodec {
-	type Item = Message;
-	type Error = io::Error;
+impl Decoder for MsgCodec {
+	type Item = (RequestId, MsgBody);
+	type Error = ser::Error;
     fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
-        Ok(())
+        unimplemented!()
     }
 }
-
-
-
-
-
-
