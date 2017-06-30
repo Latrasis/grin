@@ -17,7 +17,6 @@
 use std::io;
 
 use tokio_io::codec::{Encoder, Decoder};
-use tokio_proto::multiplex::*;
 use bytes::{BytesMut, BigEndian, BufMut, Buf, IntoBuf}; 
 
 use core::core::{Block, Transaction};
@@ -48,10 +47,10 @@ pub enum MsgBody {
 pub struct MsgCodec;
 
 impl Encoder for MsgCodec {
-    type Item = (RequestId, MsgBody);
+    type Item = MsgBody;
     type Error = io::Error;
 
-    fn encode(&mut self, (id, msg): Self::Item, dst: &mut BytesMut) -> Result<(), Self::Error> {
+    fn encode(&mut self, msg: Self::Item, dst: &mut BytesMut) -> Result<(), Self::Error> {
         
 		let (header, body) = match msg {
 			MsgBody::Pong => (MsgHeader::new(Type::Pong, 0), vec![]),
@@ -101,11 +100,9 @@ impl Encoder for MsgCodec {
 		// Serialize MsgHeader
         let header = ser::ser_vec(&header)?;
 
-        // Put Header, Id and Body
-        dst.reserve(MSG_HEADER_SIZE + 8 + body.len());
-
+        // Put Header and Body
+        dst.reserve(MSG_HEADER_SIZE + body.len());
         dst.put_slice(&header);
-        dst.put_u64::<BigEndian>(id);
         dst.put_slice(&body);
 
 		Ok(())
@@ -114,24 +111,20 @@ impl Encoder for MsgCodec {
 }
 
 impl Decoder for MsgCodec {
-	type Item = (RequestId, MsgBody);
+	type Item = MsgBody;
 	type Error = io::Error;
     fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
         // Create Temporary Buffer
 		let ref mut temp_src = src.clone();
 		
 		// Check Minimum Size
-		if temp_src.len() < MSG_HEADER_SIZE + 8 {
+		if temp_src.len() < MSG_HEADER_SIZE {
 			return Ok(None);
 		}
 
         // Get MsgHeader
 		let buf = temp_src.split_to(MSG_HEADER_SIZE).into_buf();
         let header = ser::deserialize::<MsgHeader>(&mut buf.reader())?;
-        
-        // Get Id
-        let mut buf = temp_src.split_to(8).into_buf();
-        let id = buf.get_u64::<BigEndian>();
 
 		// Ensure sufficient data
 		if temp_src.len() < header.msg_len as usize {
@@ -191,6 +184,6 @@ impl Decoder for MsgCodec {
 		let diff = src.len() - temp_src.len();
 		src.split_to(diff);
 
-		Ok(Some((id, decoded_msg)))
+		Ok(Some(decoded_msg))
 	}
 }
