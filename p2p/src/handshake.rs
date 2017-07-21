@@ -25,7 +25,7 @@ use core::core::target::Difficulty;
 use core::ser;
 use msg::*;
 use types::*;
-use protocol::ProtocolV1;
+use protocols::v1::ProtocolV1;
 
 const NONCES_CAP: usize = 100;
 

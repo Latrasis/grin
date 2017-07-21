@@ -49,7 +49,7 @@ pub mod handshake;
 mod rate_limit;
 mod msg;
 mod peer;
-mod protocol;
+mod protocols;
 mod server;
 mod store;
 mod types;
